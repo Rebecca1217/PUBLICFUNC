@@ -26,7 +26,28 @@ basicData = table(basicData.Date, basicData.ContName, basicData.Volume, ...
 futureData = unstack(basicData, 'Volume', 'ContName');
 futureData = delStockBondIdx(futureData); % 原始数据本来就没有TS，所以只删除了5列
 futureData = outerjoin(tradingDay, futureData, 'type', 'left', 'mergekeys', true);
+% @2019.08.23 上市时间限制的条件提到前面来，不满足时间的品种不参与排序
+% 上市满nListDays的标签
+% load('\\CJ-LMXUE-DT\futureData_fromWind\infoData\basicInfo.mat')
+load('E:\futureDataBasic\infoData\basicInfo.mat')
+listDate = basicInfo(:, {'future', 'listDate'});
+listDate = unstack(listDate, 'listDate', 'future');
+listDate = delStockBondIdx(listDate);
+% res是根据factorData算的，factorData是从TableData_main_v2来的，而listDate是从infoData\basicInfo来的
+% 当basicInfo添加了新品种，但TableData_main_v2还没有更新这个品种数据的时候，会产生维数不一致问题
+resVars = futureData.Properties.VariableNames(2:end);
+listDate = listDate(:, resVars);
+assert(all(strcmp(listDate.Properties.VariableNames, futureData.Properties.VariableNames(2:end))), ...
+    'Make sure the listDate Info has the same vol sequence with res!')
+longTimeLabel = [futureData.Date, table2array(repmat(listDate, height(futureData), 1))];
+% arrayfun在这里很慢，怎么提升？
+longTimeLabel = repmat(datenum(num2str(longTimeLabel(:, 1)), 'yyyymmdd'), 1, width(futureData) - 1) - ...
+    arrayfun(@(x, y) datenum(x, 'yyyymmdd'), arrayfun(@num2str, longTimeLabel(:, 2:end), 'UniformOutput', false));
+longTimeLabel = arrayfun(@(x, y, z) ifelse(x >= nListDays, 1, NaN), longTimeLabel);
 
+% 这里用上市时间把不满足条件的品种先剔除掉。
+futureData = array2table([futureData.Date, table2array(futureData(:, 2:end)) .* longTimeLabel], ...
+    'VariableNames', futureData.Properties.VariableNames);
 %% 计算均值和分位数
 % 过去60日平均成交量
 % 这个movmean在过去市场不满足n-1的时候会出幺蛾子。。
@@ -42,22 +63,10 @@ elseif strcmp(type, 'absolute')
 end
 tmpRes = array2table(tmpRes, 'VariableNames', futureData.Properties.VariableNames);
 res = tmpRes;
-%% 这里需要做个处理，1,把原本价格为NaN的部分，流动性标签调整为NaN；2，把上市不满nListDays的部分调整为NaN
+%% 这里需要做个处理，1,把原本价格为NaN的部分，流动性标签调整为NaN，因为原NaN不参与排序，和排序后得到的结果是0不一样
 nanLabel = arrayfun(@(x, y, z) ifelse(~isnan(x), 1, NaN), table2array(futureData(:, 2:end)));
-% 上市满nListDays的标签
-load('\\CJ-LMXUE-DT\futureData_fromWind\infoData\basicInfo.mat')
-listDate = basicInfo(:, {'future', 'listDate'});
-listDate = unstack(listDate, 'listDate', 'future');
-listDate = delStockBondIdx(listDate);
-assert(all(strcmp(listDate.Properties.VariableNames, res.Properties.VariableNames(2:end))), ...
-    'Make sure the listDate Info has the same vol sequence with res!')
-longTimeLabel = [res.Date, table2array(repmat(listDate, height(res), 1))];
-% arrayfun在这里很慢，怎么提升？
-longTimeLabel = repmat(datenum(num2str(longTimeLabel(:, 1)), 'yyyymmdd'), 1, width(res) - 1) - ...
-    arrayfun(@(x, y) datenum(x, 'yyyymmdd'), arrayfun(@num2str, longTimeLabel(:, 2:end), 'UniformOutput', false));
-longTimeLabel = arrayfun(@(x, y, z) ifelse(x >= nListDays, 1, NaN), longTimeLabel);
 
-res = array2table([res.Date, table2array(res(:, 2:end)) .* nanLabel .* longTimeLabel], ...
+res = array2table([res.Date, table2array(res(:, 2:end)) .* nanLabel], ...
     'VariableNames', res.Properties.VariableNames);
 res = res(res.Date >= dateFrom & res.Date <= dateTo, :);  % n以前的那些可能是错的，但是剔除后不影响
 % res中NaN都调整为0 是上市不满nListDays的品种

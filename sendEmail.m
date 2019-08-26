@@ -6,7 +6,7 @@ sendAddress = '13146308117@163.com';
 password = 'SQ1217';
 
 if nargin < 3
-    error('toAddress, passord, subject and content have to be specified!')
+    error('toAddress, subject and content have to be specified!')
 else
     toAddress = varargin{1};
 %     password = varargin{2};
@@ -24,7 +24,7 @@ setpref('Internet', 'SMTP_Password', password);
 props = java.lang.System.getProperties;
 props.setProperty('mail.smtp.auth','true');
 
-if nargin == 5
+if nargin == 4
     sendmail(toAddress, subject, content, attachment);
 else
     sendmail(toAddress, subject, content);

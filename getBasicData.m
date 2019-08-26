@@ -6,7 +6,12 @@ function res = getBasicData(type, spotVersion)
 
 %% 获取code和name 的对应表
 codename = getVarietyCode();
-contPath = '\\CJ-LMXUE-DT\futureData_fromWind\priceData\Dly';
+% load('E:\outSampleV3\readPath.mat')
+% if readPath == 1
+%     contPath = '\\CJ-LMXUE-DT\futureData_fromWind\priceData\Dly';
+% else
+    contPath = 'E:\futureDataBasic\priceData\Dly';
+% end
 if strcmp(type, 'future')
     %% 获取每天的code
     load([contPath, '\TableData_main_v2.mat'])

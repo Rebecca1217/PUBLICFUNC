@@ -26,6 +26,15 @@ mainContTrans = delStockBondIdx(mainContTrans);
 % clear idx
 
 % 第二步，hands就是最终手数不需要再点乘
+
+% @2019.08.13这个地方要保证hands和mainContTrans的列，品种顺序一致（前面unstack的时候可能导致不一致）
+name1 = mainContTrans.Properties.VariableNames;
+name2 = hands.Properties.VariableNames;
+varNames = name1(contains(name1, name2));
+varNames = [{'Date'}, sort(varNames(2:end))];
+
+hands = hands(:, varNames);
+mainContTrans = mainContTrans(:, varNames);
 res = table2array(hands(:, 2:end));
 % 把res中手数NaN都换成0，便于下一步处理
 
